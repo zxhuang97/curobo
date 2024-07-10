@@ -98,7 +98,7 @@ mppi:
   sync_cuda_time    : True
   use_coo_sparse    : True
   sample_params:
-    fixed_samples: False
+    fixed_samples: True
     sample_ratio: {'halton':0.3, 'halton-knot':0.7, 'random':0.0, 'random-knot':0.0}
     seed: 0
     filter_coeffs: [0.3, 0.3, 0.4]
