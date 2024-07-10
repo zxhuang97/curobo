@@ -83,44 +83,45 @@ def demo_full_config_collision_free_ik():
     ik_config = IKSolverConfig.load_from_robot_config(
         robot_cfg,
         world_cfg,
-        rotation_threshold=0.05,
+        rotation_threshold=1,
         position_threshold=0.005,
         num_seeds=20,
         self_collision_check=True,
         self_collision_opt=True,
         tensor_args=tensor_args,
         use_cuda_graph=True,
+        grad_iters=30,
         # use_fixed_samples=True,
     )
     ik_solver = IKSolver(ik_config)
 
     # print(kin_state)
-    print("Running Single IK")
-    for _ in range(10):
-        q_sample = ik_solver.sample_configs(1)
-        kin_state = ik_solver.fk(q_sample)
-        goal = Pose(kin_state.ee_position, kin_state.ee_quaternion)
-
-        st_time = time.time()
-        result = ik_solver.solve_batch(goal)
-        torch.cuda.synchronize()
-        total_time = (time.time() - st_time) / q_sample.shape[0]
-        print(
-            "Success, Solve Time(s), Total Time(s)",
-            torch.count_nonzero(result.success).item(),
-            result.solve_time,
-            total_time,
-            1.0 / total_time,
-            torch.mean(result.position_error) * 100.0,
-            torch.mean(result.rotation_error) * 100.0,
-        )
-    exit()
-    print("Running Batch IK (10 goals)")
-    q_sample = ik_solver.sample_configs(10)
+    # print("Running Single IK")
+    # for _ in range(10):
+    #     q_sample = ik_solver.sample_configs(1)
+    #     kin_state = ik_solver.fk(q_sample)
+    #     goal = Pose(kin_state.ee_position, kin_state.ee_quaternion)
+    #
+    #     st_time = time.time()
+    #     result = ik_solver.solve_batch(goal)
+    #     torch.cuda.synchronize()
+    #     total_time = (time.time() - st_time) / q_sample.shape[0]
+    #     print(
+    #         "Success, Solve Time(s), Total Time(s)",
+    #         torch.count_nonzero(result.success).item(),
+    #         result.solve_time,
+    #         total_time,
+    #         1.0 / total_time,
+    #         torch.mean(result.position_error) * 100.0,
+    #         torch.mean(result.rotation_error) * 100.0,
+    #     )
+    # exit()
+    print("Running Batch IK (800 goals)")
+    q_sample = ik_solver.sample_configs(800)
     kin_state = ik_solver.fk(q_sample)
     goal = Pose(kin_state.ee_position, kin_state.ee_quaternion)
 
-    for _ in range(3):
+    for _ in range(10):
         st_time = time.time()
         result = ik_solver.solve_batch(goal)
         torch.cuda.synchronize()
@@ -131,40 +132,40 @@ def demo_full_config_collision_free_ik():
             time.time() - st_time,
         )
 
-    print("Running Goalset IK (10 goals in 1 set)")
-    q_sample = ik_solver.sample_configs(10)
-    kin_state = ik_solver.fk(q_sample)
-    goal = Pose(kin_state.ee_position.unsqueeze(0), kin_state.ee_quaternion.unsqueeze(0))
-
-    for _ in range(3):
-        st_time = time.time()
-        result = ik_solver.solve_goalset(goal)
-        torch.cuda.synchronize()
-        print(
-            "Success, Solve Time(s), Total Time(s)",
-            torch.count_nonzero(result.success).item() / len(result.success),
-            result.solve_time,
-            time.time() - st_time,
-        )
-
-    print("Running Batch Goalset IK (10 goals in 10 sets)")
-    q_sample = ik_solver.sample_configs(100)
-    kin_state = ik_solver.fk(q_sample)
-    goal = Pose(
-        kin_state.ee_position.view(10, 10, 3).contiguous(),
-        kin_state.ee_quaternion.view(10, 10, 4).contiguous(),
-    )
-
-    for _ in range(3):
-        st_time = time.time()
-        result = ik_solver.solve_batch_goalset(goal)
-        torch.cuda.synchronize()
-        print(
-            "Success, Solve Time(s), Total Time(s)",
-            torch.count_nonzero(result.success).item() / len(result.success.view(-1)),
-            result.solve_time,
-            time.time() - st_time,
-        )
+    # print("Running Goalset IK (10 goals in 1 set)")
+    # q_sample = ik_solver.sample_configs(10)
+    # kin_state = ik_solver.fk(q_sample)
+    # goal = Pose(kin_state.ee_position.unsqueeze(0), kin_state.ee_quaternion.unsqueeze(0))
+    #
+    # for _ in range(3):
+    #     st_time = time.time()
+    #     result = ik_solver.solve_goalset(goal)
+    #     torch.cuda.synchronize()
+    #     print(
+    #         "Success, Solve Time(s), Total Time(s)",
+    #         torch.count_nonzero(result.success).item() / len(result.success),
+    #         result.solve_time,
+    #         time.time() - st_time,
+    #     )
+    #
+    # print("Running Batch Goalset IK (10 goals in 10 sets)")
+    # q_sample = ik_solver.sample_configs(100)
+    # kin_state = ik_solver.fk(q_sample)
+    # goal = Pose(
+    #     kin_state.ee_position.view(10, 10, 3).contiguous(),
+    #     kin_state.ee_quaternion.view(10, 10, 4).contiguous(),
+    # )
+    #
+    # for _ in range(3):
+    #     st_time = time.time()
+    #     result = ik_solver.solve_batch_goalset(goal)
+    #     torch.cuda.synchronize()
+    #     print(
+    #         "Success, Solve Time(s), Total Time(s)",
+    #         torch.count_nonzero(result.success).item() / len(result.success.view(-1)),
+    #         result.solve_time,
+    #         time.time() - st_time,
+    #     )
 
 
 def demo_full_config_batch_env_collision_free_ik():
@@ -229,6 +230,6 @@ def demo_full_config_batch_env_collision_free_ik():
 
 
 if __name__ == "__main__":
-    demo_basic_ik()
-    # demo_full_config_collision_free_ik()
+    # demo_basic_ik()
+    demo_full_config_collision_free_ik()
     # demo_full_config_batch_env_collision_free_ik()
