@@ -54,9 +54,11 @@ cost:
 
 
 mppi:
-  init_cov          : 1.0 #0.15 #.5 #.5
+#  init_cov          : 1.0 #0.15 #.5 #.5
+  init_cov          : 0.001 #0.15 #.5 #.5
   gamma             : 1.0
-  n_iters           : 4
+#  n_iters           : 4
+  n_iters           : 0
   cold_start_n_iters: null
   step_size_mean    : 0.9
   step_size_cov     : 0.1
