@@ -246,7 +246,7 @@
   <joint name="ee_fixed_joint" type="fixed">
     <parent link="panda_hand"/>
     <child link="ee_link"/>
-    <origin rpy="0 0.0 0" xyz="0.0 0. 0.11"/>
+    <origin rpy="0 0.0 0" xyz="0.0 0. 0.115"/>
   </joint>
   <link name="right_gripper">
     <inertial>
