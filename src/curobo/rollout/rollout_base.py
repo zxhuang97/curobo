@@ -77,6 +77,15 @@ class Trajectory:
 
 
 @dataclass
+class SimTrajectory:
+    actions: T_BHDOF_float
+    costs: T_BHValue_float
+    state: Optional[State] = None
+    sim_state: Optional[dict] = None
+    debug: Optional[dict] = None
+
+
+@dataclass
 class Goal(Sequence):
     """Goal data class used to update optimization target.
 
@@ -261,16 +270,16 @@ class Goal(Sequence):
             batch_enable_idx = kernel_mat @ self.batch_enable_idx
         if self.batch_retract_state_idx is not None:
             batch_retract_state_idx = (
-                kernel_mat @ self.batch_retract_state_idx.to(dtype=torch.float32)
+                    kernel_mat @ self.batch_retract_state_idx.to(dtype=torch.float32)
             ).to(dtype=torch.int32)
         if self.batch_goal_state_idx is not None:
             batch_goal_state_idx = (
-                kernel_mat @ self.batch_goal_state_idx.to(dtype=torch.float32)
+                    kernel_mat @ self.batch_goal_state_idx.to(dtype=torch.float32)
             ).to(dtype=torch.int32)
 
         if self.batch_current_state_idx is not None:
             batch_current_state_idx = (
-                kernel_mat @ self.batch_current_state_idx.to(dtype=torch.float32)
+                    kernel_mat @ self.batch_current_state_idx.to(dtype=torch.float32)
             ).to(dtype=torch.int32)
         if self.batch_pose_idx is not None:
             batch_pose_idx = (kernel_mat @ self.batch_pose_idx.to(dtype=torch.float32)).to(
@@ -367,12 +376,12 @@ class Goal(Sequence):
         return self.goal_state[self.batch_pose_idx[:, 0]]
 
     def create_index_buffers(
-        self,
-        batch_size: int,
-        batch_env: bool,
-        batch_retract: bool,
-        num_seeds: int,
-        tensor_args: TensorDeviceType,
+            self,
+            batch_size: int,
+            batch_env: bool,
+            batch_retract: bool,
+            num_seeds: int,
+            tensor_args: TensorDeviceType,
     ):
         new_goal = Goal.create_idx(batch_size, batch_env, batch_retract, num_seeds, tensor_args)
         new_goal.copy_(self, update_idx_buffers=False)
@@ -380,12 +389,12 @@ class Goal(Sequence):
 
     @classmethod
     def create_idx(
-        cls,
-        pose_batch_size: int,
-        batch_env: bool,
-        batch_retract: bool,
-        num_seeds: int,
-        tensor_args: TensorDeviceType,
+            cls,
+            pose_batch_size: int,
+            batch_env: bool,
+            batch_retract: bool,
+            num_seeds: int,
+            tensor_args: TensorDeviceType,
     ):
         batch_pose_idx = torch.arange(
             0, pose_batch_size, 1, device=tensor_args.device, dtype=torch.int32
@@ -446,13 +455,13 @@ class RolloutBase:
 
     @abstractmethod
     def constraint_fn(
-        self, state: State, out_metrics: Optional[RolloutMetrics] = None
+            self, state: State, out_metrics: Optional[RolloutMetrics] = None
     ) -> RolloutMetrics:
         return
 
     @abstractmethod
     def convergence_fn(
-        self, state: State, out_metrics: Optional[RolloutMetrics] = None
+            self, state: State, out_metrics: Optional[RolloutMetrics] = None
     ) -> RolloutMetrics:
         return
 
@@ -489,7 +498,7 @@ class RolloutBase:
 
     @abstractmethod
     def get_robot_command(
-        self, current_state, act_seq, shift_steps: int = 1, state_idx: Optional[torch.Tensor] = None
+            self, current_state, act_seq, shift_steps: int = 1, state_idx: Optional[torch.Tensor] = None
     ):
         return act_seq
 
@@ -575,7 +584,7 @@ class RolloutBase:
 
     @abstractmethod
     def get_state_from_action(
-        self, start_state: State, act_seq: torch.Tensor, state_idx: Optional[torch.Tensor] = None
+            self, start_state: State, act_seq: torch.Tensor, state_idx: Optional[torch.Tensor] = None
     ):
         pass
 

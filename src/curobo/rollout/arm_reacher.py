@@ -24,7 +24,7 @@ from curobo.rollout.cost.pose_cost import PoseCost, PoseCostConfig, PoseCostMetr
 from curobo.rollout.cost.straight_line_cost import StraightLineCost
 from curobo.rollout.cost.zero_cost import ZeroCost
 from curobo.rollout.dynamics_model.kinematic_model import KinematicModelState
-from curobo.rollout.rollout_base import Goal, RolloutMetrics
+from curobo.rollout.rollout_base import Goal, RolloutMetrics, Trajectory, SimTrajectory
 from curobo.types.base import TensorDeviceType
 from curobo.types.robot import RobotConfig
 from curobo.types.tensor import T_BValue_float, T_BValue_int
@@ -233,6 +233,31 @@ class ArmReacher(ArmBase, ArmReacherConfig):
 
         # check if g_dist is required in any of the cost terms:
         self.update_params(Goal(current_state=self._start_state))
+
+    def rollout_fn(self, act_seq) -> SimTrajectory:
+        """
+        Return sequence of costs and states encountered
+        by simulating a batch of action sequences
+
+        Parameters
+        ----------
+        action_seq: torch.Tensor [num_particles, horizon, d_act]
+        """
+
+        # print(act_seq.shape, self._goal_buffer.batch_current_state_idx)
+        if self.start_state is None:
+            raise ValueError("start_state is not set in rollout")
+        with profiler.record_function("robot_model/rollout"):
+            state = self.dynamics_model.forward(
+                self.start_state, act_seq, self._goal_buffer.batch_current_state_idx
+            )
+
+        with profiler.record_function("cost/all"):
+            cost_seq = self.cost_fn(state, act_seq)
+
+        sim_trajs = Trajectory(actions=act_seq, costs=cost_seq, state=state)
+
+        return sim_trajs
 
     def cost_fn(self, state: KinematicModelState, action_batch=None):
         """
