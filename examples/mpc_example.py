@@ -55,12 +55,6 @@ def demo_full_config_mpc():
     mpc_config = MpcSolverConfig.load_from_robot_config(
         robot_cfg,
         world_file,
-        use_cuda_graph=False,
-        use_cuda_graph_metrics=False,
-        use_cuda_graph_full_step=False,
-        use_lbfgs=False,
-        use_es=False,
-        use_mppi=True,
         store_rollouts=True,
         step_dt=0.03,
     )
@@ -95,11 +89,7 @@ def demo_full_config_mpc():
         st_time = time.time()
         # current_state.position += 0.1
         # print(current_state.position)
-        print(f"--------------- {tstep} ----------------")
-        print(mpc.solver.optimizers[0].cov_action)
-        print(mpc.solver.optimizers[0].scale_tril)
         result = mpc.step(current_state, 1)
-
 
         # print(mpc.get_visual_rollouts().shape)
         # exit()
