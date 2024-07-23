@@ -10,7 +10,7 @@
 ##
 
 model:
-  horizon: 30
+  horizon: 10
   state_filter_cfg:
     filter_coeff:
       position: 0.1
@@ -28,14 +28,14 @@ model:
 
 
 cost:
-  pose_cfg:
-    vec_weight: [1.0,1.0, 1.0, 1.0, 1.0, 1.0]
-    run_vec_weight: [1.0,1.0, 1.0, 1.0, 1.0, 1.0]
-    weight: [60,300.0,20,20] #[150.0, 2000.0, 30, 40]
-    vec_convergence: [0.0, 0.00] # orientation, position
-    terminal: True
-    run_weight: 1.0
-    use_metric: True
+#  pose_cfg:
+#    vec_weight: [1.0,1.0, 1.0, 1.0, 1.0, 1.0]
+#    run_vec_weight: [1.0,1.0, 1.0, 1.0, 1.0, 1.0]
+#    weight: [60,300.0,20,20] #[150.0, 2000.0, 30, 40]
+#    vec_convergence: [0.0, 0.00] # orientation, position
+#    terminal: True
+#    run_weight: 1.0
+#    use_metric: True
 
   cspace_cfg:
     weight: 1000.0
@@ -75,13 +75,13 @@ cost:
 mppi:
   init_cov          : 0.05 #.5 #.5
   gamma             : 0.98
-  n_iters           : 5
+  n_iters           : 2
   cold_start_n_iters: 5
   step_size_mean    : 0.9
   step_size_cov     : 0.01
   beta              : 0.1
   alpha             : 1
-  num_particles     : 400 #10000
+  num_particles     : 80 #10000
   update_cov        : True
   cov_type          : "DIAG_A" # SIGMA_A DIAG_A FULL_A FULL_HA
   kappa             : 0.0001

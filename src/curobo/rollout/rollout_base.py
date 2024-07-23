@@ -114,6 +114,7 @@ class Goal(Sequence):
     batch_world_idx: Optional[torch.Tensor] = None  # shape: [batch, n]
     update_batch_idx_buffers: bool = True
     n_goalset: int = 1  # NOTE: This currently does not get updated if goal_pose is updated later.
+    simulator_state: Optional[torch.Tensor] = None
 
     def __getitem__(self, idx):
         d_list = [
@@ -188,6 +189,7 @@ class Goal(Sequence):
         goal_pose = goal_state = current_state = links_goal_pose = retract_state = None
         batch_enable_idx = batch_pose_idx = batch_world_idx = batch_current_state_idx = None
         batch_retract_state_idx = batch_goal_state_idx = None
+        simulator_state = None
 
         if self.links_goal_pose is not None:
             links_goal_pose = self.links_goal_pose
@@ -200,6 +202,8 @@ class Goal(Sequence):
             current_state = self.current_state  # .repeat_seeds(num_seeds)
         if self.retract_state is not None:
             retract_state = self.retract_state
+        if self.simulator_state is not None:
+            simulator_state = self.simulator_state
         # repeat seeds for indexing:
         if self.batch_pose_idx is not None:
             batch_pose_idx = self._tensor_repeat_seeds(self.batch_pose_idx, num_seeds)
@@ -230,6 +234,7 @@ class Goal(Sequence):
             batch_retract_state_idx=batch_retract_state_idx,
             batch_goal_state_idx=batch_goal_state_idx,
             links_goal_pose=links_goal_pose,
+            simulator_state=simulator_state,
         )
 
     def clone(self):
@@ -246,6 +251,7 @@ class Goal(Sequence):
             batch_goal_state_idx=self.batch_goal_state_idx,
             links_goal_pose=self.links_goal_pose,
             n_goalset=self.n_goalset,
+            simulator_state=self.simulator_state,
         )
 
     def _tensor_repeat_seeds(self, tensor, num_seeds):
@@ -330,6 +336,7 @@ class Goal(Sequence):
         self.goal_state = self._copy_buffer(self.goal_state, goal.goal_state)
         self.retract_state = self._copy_tensor(self.retract_state, goal.retract_state)
         self.current_state = self._copy_buffer(self.current_state, goal.current_state)
+        self.simulator_state = self._copy_tensor(self.simulator_state, goal.simulator_state)
         if goal.links_goal_pose is not None:
             if self.links_goal_pose is None:
                 self.links_goal_pose = goal.links_goal_pose

@@ -61,7 +61,7 @@ def join_path(path1, path2):
     if path1[-1] == os.sep:
         log_warn("path1 has trailing slash, removing it")
     if isinstance(path2, str):
-        return os.path.join(os.sep, path1 + os.sep, path2)
+        return os.path.join(path1 + os.sep, path2)
     else:
         return path2
 
