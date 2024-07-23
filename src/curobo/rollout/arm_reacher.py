@@ -10,7 +10,7 @@
 #
 # Standard Library
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union, Callable
 
 # Third Party
 import torch
@@ -109,10 +109,10 @@ class ArmReacherCostConfig(ArmCostConfig):
 
     @staticmethod
     def from_dict(
-        data_dict: Dict,
-        robot_cfg: RobotConfig,
-        world_coll_checker: Optional[WorldCollision] = None,
-        tensor_args: TensorDeviceType = TensorDeviceType(),
+            data_dict: Dict,
+            robot_cfg: RobotConfig,
+            world_coll_checker: Optional[WorldCollision] = None,
+            tensor_args: TensorDeviceType = TensorDeviceType(),
     ):
         k_list = ArmReacherCostConfig._get_base_keys()
         data = ArmCostConfig._get_formatted_dict(
@@ -133,10 +133,10 @@ class ArmReacherConfig(ArmBaseConfig):
 
     @staticmethod
     def cost_from_dict(
-        cost_data_dict: Dict,
-        robot_cfg: RobotConfig,
-        world_coll_checker: Optional[WorldCollision] = None,
-        tensor_args: TensorDeviceType = TensorDeviceType(),
+            cost_data_dict: Dict,
+            robot_cfg: RobotConfig,
+            world_coll_checker: Optional[WorldCollision] = None,
+            tensor_args: TensorDeviceType = TensorDeviceType(),
     ):
         return ArmReacherCostConfig.from_dict(
             cost_data_dict,
@@ -161,10 +161,16 @@ class ArmReacher(ArmBase, ArmReacherConfig):
     """
 
     @profiler.record_function("arm_reacher/init")
-    def __init__(self, config: Optional[ArmReacherConfig] = None):
+    def __init__(self, config: Optional[ArmReacherConfig] = None,
+                 plan_with_simulator: Optional[bool] = False,
+                 simulator_rollout_fn: Optional[Callable] = None,
+                 ):
         if config is not None:
             ArmReacherConfig.__init__(self, **vars(config))
         ArmBase.__init__(self)
+        self.plan_with_simulator = plan_with_simulator
+        self.simulator_rollout_fn = simulator_rollout_fn
+        self.sim_cost_fn = None
 
         # self.goal_state = None
         # self.goal_ee_pos = None
@@ -234,6 +240,9 @@ class ArmReacher(ArmBase, ArmReacherConfig):
         # check if g_dist is required in any of the cost terms:
         self.update_params(Goal(current_state=self._start_state))
 
+    def set_sim_cost_fn(self, sim_cost_fn):
+        self.sim_cost_fn = sim_cost_fn
+
     def rollout_fn(self, act_seq) -> SimTrajectory:
         """
         Return sequence of costs and states encountered
@@ -255,8 +264,15 @@ class ArmReacher(ArmBase, ArmReacherConfig):
         with profiler.record_function("cost/all"):
             cost_seq = self.cost_fn(state, act_seq)
 
+        if self.plan_with_simulator:
+            assert self.simulator_rollout_fn is not None
+            sim_start_state = self.start_state.sim_state
+            sim_action = state.state_seq.position
+            results = self.simulator_rollout_fn(sim_start_state, (None, sim_action), cost_func=self.sim_cost_fn,
+                                                render_all=False)
+            sim_costs = results["costs"]
+            cost_seq += sim_costs * 1000
         sim_trajs = Trajectory(actions=act_seq, costs=cost_seq, state=state)
-
         return sim_trajs
 
     def cost_fn(self, state: KinematicModelState, action_batch=None):
@@ -275,9 +291,9 @@ class ArmReacher(ArmBase, ArmReacherConfig):
         g_dist = None
         with profiler.record_function("cost/pose"):
             if (
-                self._goal_buffer.goal_pose.position is not None
-                and self.cost_cfg.pose_cfg is not None
-                and self.goal_cost.enabled
+                    self._goal_buffer.goal_pose.position is not None
+                    and self.cost_cfg.pose_cfg is not None
+                    and self.goal_cost.enabled
             ):
                 if self._compute_g_dist:
                     goal_cost, rot_err_norm, goal_dist = self.goal_cost.forward_out_distance(
@@ -309,11 +325,10 @@ class ArmReacher(ArmBase, ArmReacherConfig):
                             cost_list.append(c)
 
         if (
-            self._goal_buffer.goal_state is not None
-            and self.cost_cfg.cspace_cfg is not None
-            and self.dist_cost.enabled
+                self._goal_buffer.goal_state is not None
+                and self.cost_cfg.cspace_cfg is not None
+                and self.dist_cost.enabled
         ):
-
             joint_cost = self.dist_cost.forward_target_idx(
                 self._goal_buffer.goal_state.position,
                 state_batch.position,
@@ -325,9 +340,9 @@ class ArmReacher(ArmBase, ArmReacherConfig):
             cost_list.append(st_cost)
 
         if (
-            self.cost_cfg.zero_acc_cfg is not None
-            and self.zero_acc_cost.enabled
-            # and g_dist is not None
+                self.cost_cfg.zero_acc_cfg is not None
+                and self.zero_acc_cost.enabled
+                # and g_dist is not None
         ):
             z_acc = self.zero_acc_cost.forward(
                 state_batch.acceleration,
@@ -357,7 +372,7 @@ class ArmReacher(ArmBase, ArmReacherConfig):
         return cost
 
     def convergence_fn(
-        self, state: KinematicModelState, out_metrics: Optional[ArmReacherMetrics] = None
+            self, state: KinematicModelState, out_metrics: Optional[ArmReacherMetrics] = None
     ) -> ArmReacherMetrics:
         if out_metrics is None:
             out_metrics = ArmReacherMetrics()
@@ -367,8 +382,8 @@ class ArmReacher(ArmBase, ArmReacherConfig):
 
         # compute error with pose?
         if (
-            self._goal_buffer.goal_pose.position is not None
-            and self.convergence_cfg.pose_cfg is not None
+                self._goal_buffer.goal_pose.position is not None
+                and self.convergence_cfg.pose_cfg is not None
         ):
             (
                 out_metrics.pose_error,
@@ -379,8 +394,8 @@ class ArmReacher(ArmBase, ArmReacherConfig):
             )
             out_metrics.goalset_index = self.pose_convergence.goalset_index_buffer  # .clone()
         if (
-            self._goal_buffer.links_goal_pose is not None
-            and self.convergence_cfg.pose_cfg is not None
+                self._goal_buffer.links_goal_pose is not None
+                and self.convergence_cfg.pose_cfg is not None
         ):
             pose_error = [out_metrics.pose_error]
             position_error = [out_metrics.position_error]
@@ -406,9 +421,9 @@ class ArmReacher(ArmBase, ArmReacherConfig):
             out_metrics.position_error = cat_max(position_error)
 
         if (
-            self._goal_buffer.goal_state is not None
-            and self.convergence_cfg.cspace_cfg is not None
-            and self.cspace_convergence.enabled
+                self._goal_buffer.goal_state is not None
+                and self.convergence_cfg.cspace_cfg is not None
+                and self.cspace_convergence.enabled
         ):
             _, out_metrics.cspace_error = self.cspace_convergence.forward_target_idx(
                 self._goal_buffer.goal_state.position,
@@ -418,9 +433,9 @@ class ArmReacher(ArmBase, ArmReacherConfig):
             )
 
         if (
-            self.convergence_cfg.null_space_cfg is not None
-            and self.null_convergence.enabled
-            and self._goal_buffer.batch_retract_state_idx is not None
+                self.convergence_cfg.null_space_cfg is not None
+                and self.null_convergence.enabled
+                and self._goal_buffer.batch_retract_state_idx is not None
         ):
             out_metrics.null_space_error = self.null_convergence.forward_target_idx(
                 self._goal_buffer.retract_state,
@@ -431,8 +446,8 @@ class ArmReacher(ArmBase, ArmReacherConfig):
         return out_metrics
 
     def update_params(
-        self,
-        goal: Goal,
+            self,
+            goal: Goal,
     ):
         """
         Update params for the cost terms and dynamics model.
@@ -469,8 +484,8 @@ class ArmReacher(ArmBase, ArmReacherConfig):
         return pose_costs
 
     def update_pose_cost_metric(
-        self,
-        metric: PoseCostMetric,
+            self,
+            metric: PoseCostMetric,
     ):
         pose_costs = self.get_pose_costs(include_link_pose=metric.include_link_pose)
         if metric.hold_partial_pose:

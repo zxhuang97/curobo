@@ -43,7 +43,7 @@ cost:
     run_weight: 1.0
 
   cspace_cfg:
-    weight: 0.01
+    weight: 0.0
 
   bound_cfg:
     weight: 500000.0

@@ -13,6 +13,7 @@ from __future__ import annotations
 # Standard Library
 from dataclasses import dataclass, field
 from typing import List, Optional, Sequence, Tuple, Union
+from copy import deepcopy
 
 # Third Party
 import numpy as np
@@ -74,6 +75,7 @@ class JointState(State):
     jerk: Union[List[float], T_DOF, None] = None  # Optional
     tensor_args: TensorDeviceType = TensorDeviceType()
     aux_data: dict = field(default_factory=lambda: {})
+    sim_state: Optional[torch.tensor] = None
 
     def __post_init__(self):
         if isinstance(self.position, torch.Tensor):
@@ -81,12 +83,13 @@ class JointState(State):
 
     @staticmethod
     def from_numpy(
-        joint_names: List[str],
-        position: np.ndarray,
-        velocity: Optional[np.ndarray] = None,
-        acceleration: Optional[np.ndarray] = None,
-        jerk: Optional[np.ndarray] = None,
-        tensor_args: TensorDeviceType = TensorDeviceType(),
+            joint_names: List[str],
+            position: np.ndarray,
+            velocity: Optional[np.ndarray] = None,
+            acceleration: Optional[np.ndarray] = None,
+            jerk: Optional[np.ndarray] = None,
+            tensor_args: TensorDeviceType = TensorDeviceType(),
+            sim_state: Optional[np.ndarray] = None,
     ):
         pos = tensor_args.to_device(position)
         vel = acc = je = None
@@ -102,16 +105,22 @@ class JointState(State):
             je = tensor_args.to_device(jerk)
         else:
             je = pos * 0.0
-        return JointState(pos, vel, acc, joint_names=joint_names, jerk=je, tensor_args=tensor_args)
+        if sim_state is not None:
+            sim_state = tensor_args.to_device(sim_state)
+        return JointState(pos, vel, acc, joint_names=joint_names, jerk=je, tensor_args=tensor_args,
+                          sim_state=sim_state)
 
     @staticmethod
-    def from_position(position: T_BDOF, joint_names: Optional[List[str]] = None):
+    def from_position(position: T_BDOF, joint_names: Optional[List[str]] = None,
+                      sim_state: Optional[torch.tensor] = None,
+                      ):
         return JointState(
             position=position,
             velocity=position * 0.0,
             acceleration=position * 0.0,
             jerk=position * 0.0,
             joint_names=joint_names,
+            sim_state=sim_state,
         )
 
     def apply_kernel(self, kernel_mat):
@@ -134,6 +143,9 @@ class JointState(State):
                 else None
             ),
             joint_names=self.joint_names,
+            sim_state=(
+                tensor_repeat_seeds(self.sim_state, num_seeds) if self.sim_state is not None else None
+            )
         )
 
     def to(self, tensor_args: TensorDeviceType):
@@ -145,6 +157,8 @@ class JointState(State):
             acceleration = tensor_args.to_device(self.acceleration)
         if self.jerk is not None:
             jerk = tensor_args.to_device(self.jerk)
+        if self.sim_state is not None:
+            sim_state = tensor_args.to_device(self.sim_state)
         return JointState(
             position,
             velocity,
@@ -152,31 +166,35 @@ class JointState(State):
             jerk=jerk,
             tensor_args=tensor_args,
             joint_names=self.joint_names,
+            sim_state=sim_state,
         )
 
     def clone(self):
         j_names = None
         if self.joint_names is not None:
             j_names = self.joint_names.copy()
-        return JointState(
+        js = JointState(
             position=clone_if_not_none(self.position),
             velocity=clone_if_not_none(self.velocity),
             acceleration=clone_if_not_none(self.acceleration),
             jerk=clone_if_not_none(self.jerk),
             joint_names=j_names,
             tensor_args=self.tensor_args,
+            sim_state=clone_if_not_none(self.sim_state),
         )
+        js.aux_data = deepcopy(self.aux_data)
+        return js
 
     def blend(self, coeff: FilterCoeff, new_state: JointState):
         self.position[:] = (
-            coeff.position * new_state.position + (1.0 - coeff.position) * self.position
+                coeff.position * new_state.position + (1.0 - coeff.position) * self.position
         )
         self.velocity[:] = (
-            coeff.velocity * new_state.velocity + (1.0 - coeff.velocity) * self.velocity
+                coeff.velocity * new_state.velocity + (1.0 - coeff.velocity) * self.velocity
         )
         self.acceleration[:] = (
-            coeff.acceleration * new_state.acceleration
-            + (1.0 - coeff.acceleration) * self.acceleration
+                coeff.acceleration * new_state.acceleration
+                + (1.0 - coeff.acceleration) * self.acceleration
         )
         self.jerk[:] = coeff.jerk * new_state.jerk + (1.0 - coeff.jerk) * self.jerk
         return self
@@ -198,9 +216,9 @@ class JointState(State):
     def from_state_tensor(state_tensor, joint_names=None, dof=7):
         return JointState(
             state_tensor[..., :dof],
-            state_tensor[..., dof : 2 * dof],
-            state_tensor[..., 2 * dof : 3 * dof],
-            jerk=state_tensor[..., 3 * dof : 4 * dof],
+            state_tensor[..., dof: 2 * dof],
+            state_tensor[..., 2 * dof: 3 * dof],
+            jerk=state_tensor[..., 3 * dof: 4 * dof],
             joint_names=joint_names,
         )
 
@@ -228,19 +246,19 @@ class JointState(State):
                 + str(self.position.shape)
             )
         if isinstance(idx, int):
-            p, v, a, j = jit_get_index_int(
-                self.position, self.velocity, self.acceleration, self.jerk, idx
+            p, v, a, j, s = jit_get_index_int(
+                self.position, self.velocity, self.acceleration, self.jerk, self.sim_state, idx
             )
         elif isinstance(idx, torch.Tensor):
-            p, v, a, j = jit_get_index(
-                self.position, self.velocity, self.acceleration, self.jerk, idx
+            p, v, a, j, s = jit_get_index(
+                self.position, self.velocity, self.acceleration, self.jerk, self.sim_state, idx
             )
         else:
-            p, v, a, j = fn_get_index(
-                self.position, self.velocity, self.acceleration, self.jerk, idx
+            p, v, a, j, s = fn_get_index(
+                self.position, self.velocity, self.acceleration, self.jerk, self.sim_state, idx
             )
 
-        return JointState(p, v, a, joint_names=self.joint_names, jerk=j)
+        return JointState(p, v, a, joint_names=self.joint_names, jerk=j, sim_state=s)
 
     def __len__(self):
         return self.position.shape[0]
@@ -302,9 +320,9 @@ class JointState(State):
         same_shape = False
 
         if (
-            check_tensor_shapes(new_js.position, self.position)
-            and check_tensor_shapes(new_js.velocity, self.velocity)
-            and check_tensor_shapes(new_js.acceleration, self.acceleration)
+                check_tensor_shapes(new_js.position, self.position)
+                and check_tensor_shapes(new_js.velocity, self.velocity)
+                and check_tensor_shapes(new_js.acceleration, self.acceleration)
         ):
             same_shape = True
 
@@ -318,6 +336,8 @@ class JointState(State):
         # copy data if tensor shapes are same:
         if in_joint_state.joint_names is not None:
             self.joint_names = in_joint_state.joint_names
+        if in_joint_state.sim_state is not None:
+            self.sim_state = in_joint_state.sim_state
         if self._same_shape(in_joint_state):
             # copy data:
             self.position.copy_(in_joint_state.position)
@@ -362,7 +382,7 @@ class JointState(State):
 
     @staticmethod
     def zeros(
-        size: Tuple[int], tensor_args: TensorDeviceType, joint_names: Optional[List[str]] = None
+            size: Tuple[int], tensor_args: TensorDeviceType, joint_names: Optional[List[str]] = None
     ):
         return JointState(
             position=torch.zeros(size, device=tensor_args.device, dtype=tensor_args.dtype),
@@ -412,7 +432,7 @@ class JointState(State):
         self.joint_names = [self.joint_names[x] for x in new_index_l]
 
     def get_augmented_joint_state(
-        self, joint_names, lock_joints: Optional[JointState] = None
+            self, joint_names, lock_joints: Optional[JointState] = None
     ) -> JointState:
         if lock_joints is None:
             return self.get_ordered_joint_state(joint_names)
@@ -501,9 +521,9 @@ class JointState(State):
         if self.velocity is not None:
             vel = self.velocity * dt
         if self.acceleration is not None:
-            acc = self.acceleration * (dt**2)
+            acc = self.acceleration * (dt ** 2)
         if self.jerk is not None:
-            jerk = self.jerk * (dt**3)
+            jerk = self.jerk * (dt ** 3)
         return JointState(self.position, vel, acc, self.joint_names, jerk, self.tensor_args)
 
     def scale_by_dt(self, dt: torch.Tensor, new_dt: torch.Tensor):
@@ -538,11 +558,11 @@ class JointState(State):
 
 @get_torch_jit_decorator()
 def jit_js_scale(
-    vel: Union[None, torch.Tensor],
-    acc: Union[None, torch.Tensor],
-    jerk: Union[None, torch.Tensor],
-    dt: torch.Tensor,
-    new_dt: torch.Tensor,
+        vel: Union[None, torch.Tensor],
+        acc: Union[None, torch.Tensor],
+        jerk: Union[None, torch.Tensor],
+        dt: torch.Tensor,
+        new_dt: torch.Tensor,
 ):
     scale_dt = dt / new_dt
     if vel is not None:
@@ -556,13 +576,13 @@ def jit_js_scale(
 
 @get_torch_jit_decorator()
 def jit_get_index(
-    position: torch.Tensor,
-    velocity: Union[torch.Tensor, None],
-    acc: Union[torch.Tensor, None],
-    jerk: Union[torch.Tensor, None],
-    idx: torch.Tensor,
+        position: torch.Tensor,
+        velocity: Union[torch.Tensor, None],
+        acc: Union[torch.Tensor, None],
+        jerk: Union[torch.Tensor, None],
+        sim_state: Union[torch.Tensor, None],
+        idx: torch.Tensor,
 ):
-
     position = position[idx]
     if velocity is not None:
         velocity = velocity[idx]
@@ -570,18 +590,19 @@ def jit_get_index(
         acc = acc[idx]
     if jerk is not None:
         jerk = jerk[idx]
-
-    return position, velocity, acc, jerk
+    if sim_state is not None:
+        sim_state = sim_state[idx]
+    return position, velocity, acc, jerk, sim_state
 
 
 def fn_get_index(
-    position: torch.Tensor,
-    velocity: Union[torch.Tensor, None],
-    acc: Union[torch.Tensor, None],
-    jerk: Union[torch.Tensor, None],
-    idx: torch.Tensor,
+        position: torch.Tensor,
+        velocity: Union[torch.Tensor, None],
+        acc: Union[torch.Tensor, None],
+        jerk: Union[torch.Tensor, None],
+        sim_state: Union[torch.Tensor, None],
+        idx: torch.Tensor,
 ):
-
     position = position[idx]
     if velocity is not None:
         velocity = velocity[idx]
@@ -589,19 +610,20 @@ def fn_get_index(
         acc = acc[idx]
     if jerk is not None:
         jerk = jerk[idx]
-
-    return position, velocity, acc, jerk
+    if sim_state is not None:
+        sim_state = sim_state[idx]
+    return position, velocity, acc, jerk, sim_state
 
 
 @get_torch_jit_decorator()
 def jit_get_index_int(
-    position: torch.Tensor,
-    velocity: Union[torch.Tensor, None],
-    acc: Union[torch.Tensor, None],
-    jerk: Union[torch.Tensor, None],
-    idx: int,
+        position: torch.Tensor,
+        velocity: Union[torch.Tensor, None],
+        acc: Union[torch.Tensor, None],
+        jerk: Union[torch.Tensor, None],
+        sim_state: Union[torch.Tensor, None],
+        idx: int,
 ):
-
     position = position[idx]
     if velocity is not None:
         velocity = velocity[idx]
@@ -609,5 +631,7 @@ def jit_get_index_int(
         acc = acc[idx]
     if jerk is not None:
         jerk = jerk[idx]
+    if sim_state is not None:
+        sim_state = sim_state[idx]
 
-    return position, velocity, acc, jerk
+    return position, velocity, acc, jerk, sim_state

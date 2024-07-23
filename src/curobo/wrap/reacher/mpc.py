@@ -36,8 +36,9 @@ A python example is available at :ref:`python_mpc_example`.
 
 # Standard Library
 import time
+from copy import deepcopy
 from dataclasses import dataclass
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Union, Callable
 
 # Third Party
 import torch
@@ -58,6 +59,7 @@ from curobo.types.base import TensorDeviceType
 from curobo.types.math import Pose
 from curobo.types.robot import JointState, RobotConfig
 from curobo.util.logger import log_error, log_info, log_warn
+from curobo.util.tensor_util import copy_tensor
 from curobo.util_file import (
     get_robot_configs_path,
     get_task_configs_path,
@@ -93,7 +95,7 @@ class MpcSolverConfig:
     @staticmethod
     def load_from_robot_config(
         robot_cfg: Union[Union[str, dict], RobotConfig],
-        world_model: Union[Union[str, dict], WorldConfig],
+        world_model: Optional[Union[Union[str, dict], WorldConfig]]=None,
         base_cfg: Optional[dict] = None,
         tensor_args: TensorDeviceType = TensorDeviceType(),
         compute_metrics: bool = True,
@@ -117,6 +119,8 @@ class MpcSolverConfig:
         particle_file: str = "particle_mpc.yml",
         override_particle_file: str = None,
         project_pose_to_goal_frame: bool = True,
+        plan_with_simulator: bool = False,
+        simulator_rollout_fn: Optional[Callable] = None,
     ):
         """Create an MPC solver configuration from robot and world configuration.
 
@@ -263,7 +267,7 @@ class MpcSolverConfig:
             tensor_args=tensor_args,
         )
 
-        arm_rollout_mppi = ArmReacher(cfg)
+        arm_rollout_mppi = ArmReacher(cfg, plan_with_simulator, simulator_rollout_fn)
         arm_rollout_safety = ArmReacher(safety_cfg)
         arm_rollout_aux = ArmReacher(aux_cfg)
         config_data["mppi"]["store_rollouts"] = store_rollouts
@@ -808,6 +812,7 @@ class MpcSolver(MpcSolverConfig):
             self._step_goal_buffer = Goal(
                 current_state=self._goal_buffer.current_state.clone(),
                 batch_current_state_idx=self._goal_buffer.batch_current_state_idx.clone(),
+                simulator_state=self._goal_buffer.simulator_state.clone(),
             )
         return self._goal_buffer
 
