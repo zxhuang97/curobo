@@ -87,8 +87,8 @@ lbfgs:
   use_cuda_line_search_kernel: True
   use_cuda_update_best_kernel: True
   sync_cuda_time: True
-#  step_scale: 1.0
-  step_scale: 1
+  step_scale: 1.0
+#  step_scale: 0.1
   use_coo_sparse: True
   last_best: 10
   debug_info:
