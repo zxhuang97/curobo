@@ -1610,7 +1610,7 @@ class IKSolver(IKSolverConfig):
         return feasible
 
 
-@get_torch_jit_decorator()
+
 def get_success(
     feasible,
     position_error,

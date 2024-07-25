@@ -2774,12 +2774,15 @@ class MotionGen(MotionGenConfig):
             goal_pose,
             start_state.position.view(-1, self._dof),
             start_state.position.view(-1, 1, self._dof),
+            # None,
+            # None,
             solve_state.num_trajopt_seeds,
             solve_state.num_ik_seeds,
             use_nn_seed,
             newton_iters,
             link_poses,
         )
+        # ik_result = self.ik_solver.solve_batch(goal_pose)
         return ik_result
 
     @profiler.record_function("motion_gen/trajopt_solve")

@@ -23,7 +23,7 @@ from .cost_base import CostBase, CostConfig
 @get_torch_jit_decorator()
 def st_cost(ee_pos_batch, vec_weight, weight):
     ee_plus_one = torch.roll(ee_pos_batch, 1, dims=1)
-
+    ee_plus_one[:, 0] = ee_pos_batch[:, 0]
     xdot_current = ee_pos_batch - ee_plus_one + 1e-8
 
     err_vec = vec_weight * xdot_current / 0.02
