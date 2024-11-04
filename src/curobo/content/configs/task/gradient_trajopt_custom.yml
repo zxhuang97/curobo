@@ -32,7 +32,8 @@ cost:
   pose_cfg:
     vec_weight: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0] # orientation, position for all timesteps
     run_vec_weight: [0.00,0.00,0.00,0.0,0.0,0.0] # running weight orientation, position
-    weight: [1000,50000.0,30,50] #[150.0, 2000.0, 30, 40]
+#    weight: [1000,50000.0,30,50] #[150.0, 2000.0, 30, 40]
+    weight: [1000,60000.0,30,50] #[150.0, 2000.0, 30, 40]
     vec_convergence: [0.0,0.0] # orientation, position, orientation metric activation, position metric activation
     terminal: True
     run_weight: 1.0
@@ -54,6 +55,9 @@ cost:
 
   bound_cfg:
     weight: [50000.0, 50000.0, 500.0,500.0]
+#    smooth_weight: [ 0.0,1000.0,0.5, 0.0 ]
+#    run_weight_velocity: 0.1
+#    run_weight_acceleration: 0.1
     smooth_weight: [0.0,10000.0,5.0, 0.0]
     run_weight_velocity: 1
     run_weight_acceleration: 1.0
@@ -76,8 +80,8 @@ cost:
     classify: False
 
   straight_line_cfg:
-    vec_weight: [1.0, 1.0, 1.0]
-    weight: 10000
+    vec_weight: [1, 1, 1.0]
+    weight: 2000000
 
 
 lbfgs:

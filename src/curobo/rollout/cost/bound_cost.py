@@ -40,7 +40,7 @@ class BoundCostType(Enum):
 @dataclass
 class BoundCostConfig(CostConfig):
     joint_limits: Optional[JointLimits] = None
-    smooth_weight: Optional[List[float]] = None
+    smooth_weight: Optional[List[float]] = None   # [vel, acc, jerk, alpha_v]
     run_weight_velocity: float = 0.0
     run_weight_acceleration: float = 0.0
     run_weight_jerk: float = 0.0

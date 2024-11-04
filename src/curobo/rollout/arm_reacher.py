@@ -9,6 +9,7 @@
 # its affiliates is strictly prohibited.
 #
 # Standard Library
+import time
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Union, Callable
 
@@ -266,12 +267,16 @@ class ArmReacher(ArmBase, ArmReacherConfig):
 
         if self.plan_with_simulator:
             assert self.simulator_rollout_fn is not None
+            t1 = time.time()
             sim_start_state = self.start_state.sim_state
             sim_action = state.state_seq.position
-            results = self.simulator_rollout_fn(sim_start_state, (None, sim_action), cost_func=self.sim_cost_fn,
+            results = self.simulator_rollout_fn(sim_start_state, (None, sim_action),
+                                                cost_func=self.sim_cost_fn,
                                                 render_all=False)
             sim_costs = results["costs"]
-            cost_seq += sim_costs * 1000
+            cost_seq += sim_costs * 1e5
+            t2 = time.time()
+            print(f"Simulator rollout time: {t2 - t1}")
         sim_trajs = Trajectory(actions=act_seq, costs=cost_seq, state=state)
         return sim_trajs
 
