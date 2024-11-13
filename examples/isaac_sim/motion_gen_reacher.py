@@ -136,6 +136,7 @@ from curobo.wrap.reacher.motion_gen import (
     PoseCostMetric,
 )
 
+from force_tool.utils.curobo_utils import CuRoboArm
 ############################################################
 
 
@@ -202,7 +203,9 @@ def main():
     world_cfg1.mesh[0].pose[2] = -10.5
 
     world_cfg = WorldConfig(cuboid=world_cfg_table.cuboid, mesh=world_cfg1.mesh)
-
+    curobo_arm = CuRoboArm("victor_left.yml", external_asset_path="/home/zixuanh/force_tool/assets/victor",
+                           num_ik_seeds=10, device=tensor_args.device,
+                                    )
     trajopt_dt = None
     optimize_dt = True
     trajopt_tsteps = 32
