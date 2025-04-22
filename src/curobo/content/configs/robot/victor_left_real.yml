@@ -40,7 +40,7 @@ robot_cfg:
     # urdf_path: robot/iiwa_allegro_description/iiwa.urdf
     # asset_root_path: robot/iiwa_allegro_description
     # urdf_path: victor_left_arm.urdf
-    usd_path: victor_left_arm/victor_left_arm.usd
+    usd_path: victor_left_arm_real/victor_left_arm_real.usd
     asset_root_path: ./
     use_usd_kinematics: true
     usd_robot_root: /victor
